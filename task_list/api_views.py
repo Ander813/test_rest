@@ -62,7 +62,7 @@ class RegisterView(APIView):
 
 
 """Вместо добавления разных эндпоинтов для добавления записи 
-и получения списка записей предпочитаю обьеденять в 1 принимающий как get так и post запросы"""
+и получения списка записей предпочитаю обьединять в 1 принимающий как get так и post запросы"""
 class TaskListView2(generics.ListCreateAPIView):
     serializer_class = TaskSerializer
 
