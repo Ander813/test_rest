@@ -9,33 +9,41 @@ from rest_framework.test import APITestCase
 from task_list.models import User, Task
 
 
-class TasksTests(APITestCase):
+class AuthorizationTests(APITestCase):
+    data = {'email': 'some_email@mail.ru',
+            'password': 'Qwerty123'}
+
     def test_create_account(self):
         url = reverse('register')
-        data = {'email': 'some_email@mail.ru',
-                'password': 'Qwerty123'}
-        response = self.client.post(url, data, format='json')
+        response = self.client.post(url, self.data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(User.objects.count(), 1)
-        self.assertEqual(User.objects.get(id=1).email, data['email'])
-        self.assertEqual(check_password(data['password'], User.objects.get(id=1).password), True)
+        self.assertEqual(User.objects.get(id=1).email, self.data['email'])
+        self.assertEqual(check_password(self.data['password'], User.objects.get(id=1).password), True)
         user = User.objects.get(id=1)
         token = Token.objects.get(user=user).key
 
     def test_login_account(self):
         url = reverse('login')
         user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
-        data = {'email': 'some_email@mail.ru',
-                'password': 'Qwerty123'}
-        response = self.client.post(url, data, format='json')
+        response = self.client.post(url, self.data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         token = Token.objects.get(user=user).key
         self.assertEqual(response.data['token'], token)
 
+
+class TasksTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
+        self.token = Token.objects.get(user_id=1).key
+
+        self.api_authentication()
+
+    def api_authentication(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token}')
+
     def test_task_create(self):
-        user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
-        token = Token.objects.get(user_id=1).key
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         url = reverse('task_create')
         data = {'title': 'a',
                 'text': 'b',
@@ -56,11 +64,14 @@ class TasksTests(APITestCase):
         self.assertEqual(Task.objects.get(id=1).complete_date, date(2020, 12, 31))
         self.assertEqual(Task.objects.get(id=1).completed, expected_response_data['completed'])
 
+        self.client.force_authenticate(user=None)
+        response = self.client.post(url,
+                                    data,
+                                    format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_task_list(self):
         url = reverse('task_create')
-        user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
-        token = Token.objects.get(user=user).key
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         data = [{'title': 'a',
                  'text': 'b',
                  'complete_date': '2020-12-31'},
@@ -86,11 +97,12 @@ class TasksTests(APITestCase):
         for task_ind in range(len(response.data)):
             self.assertEqual(dict(response.data[task_ind]), expected_response_data[task_ind])
 
+        self.client.force_authenticate(user=None)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_task_delete(self):
         url = reverse('tasks')
-        user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
-        token = Token.objects.get(user=user).key
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         data = {'title': 'a',
                 'text': 'b',
                 'complete_date': '2020-12-31'}
@@ -101,9 +113,6 @@ class TasksTests(APITestCase):
 
     def test_task_completed(self):
         url = reverse('task_create')
-        user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
-        token = Token.objects.get(user=user).key
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         data = {'title': 'a',
                 'text': 'b',
                 'complete_date': '2020-12-31'}
@@ -117,11 +126,12 @@ class TasksTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, expected_response_data)
 
+        self.client.force_authenticate(user=None)
+        response = self.client.patch(url, {'completed': True}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_task_get(self):
         url = reverse('task_create')
-        user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
-        token = Token.objects.get(user=user).key
-        self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         data = {'title': 'a',
                 'text': 'b',
                 'complete_date': '2020-12-31'}
@@ -134,6 +144,11 @@ class TasksTests(APITestCase):
         response = self.client.get(url, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, expected_response_data)
+
+        self.client.force_authenticate(user=None)
+        response = self.client.get(url, format='json')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
 
 
 
