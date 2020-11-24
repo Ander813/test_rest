@@ -25,7 +25,7 @@ class AuthorizationTests(APITestCase):
 
     def test_login_account(self):
         url = reverse('login')
-        user = User.objects.create_user(email='some_email@mail.ru', password='Qwerty123')
+        user = User.objects.create_user(email=self.data['email'], password=self.data['password'])
         response = self.client.post(url, self.data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         token = Token.objects.get(user=user).key
